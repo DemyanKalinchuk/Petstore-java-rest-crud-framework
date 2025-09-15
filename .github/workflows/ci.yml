@@ -73,9 +73,9 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-  # --- OPTIONAL: publish Allure HTML to GitHub Pages ---
+  # Publish Allure HTML to GitHub Pages
   publish-allure:
-    # run even if tests failed; only on main/master & non-PR
+    # run on push/workflow_dispatch only, and even if tests failed
     if: ${{ always() && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') }}
     needs: tests
     runs-on: ubuntu-latest
@@ -90,6 +90,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Merge all allure-results-<env> into one folder
       - name: Download Allure results (all envs)
         uses: actions/download-artifact@v4
         with:
@@ -97,11 +98,8 @@ jobs:
           path: allure-results
           merge-multiple: true
 
-      # ✅ Enable Pages for this repo (and configure the site) if not already enabled
       - name: Setup Pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Generate Allure Report
         uses: simple-elf/allure-report-action@v1.8
