@@ -12,7 +12,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '22'
           cache: maven
       - name: Build (Checkstyle + tests)
         run: mvn -B -ntp -DskipITs=false verify
