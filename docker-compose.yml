@@ -1,0 +1,16 @@
+version: "3.8"
+services:
+  tests:
+    image: maven:3.9.8-eclipse-temurin-21
+    working_dir: /work
+    volumes:
+      - ./:/work
+    environment:
+      BASE_URL: "https://petstore.swagger.io/v2"
+      FILES_BASE_URL: "https://petstore.swagger.io/v2"
+      API_CONSOLE_LOG: "false"
+      API_RETRY_MAX: "2"
+      ACCEPT_LANG: "en-US"
+      API_BEARER: ""
+    command: >
+      bash -lc "mvn -q -ntp -DskipITs=false verify"
