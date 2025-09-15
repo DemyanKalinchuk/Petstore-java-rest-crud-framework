@@ -35,6 +35,18 @@ jobs:
         run: |
           mvn -ntp -P${{ matrix.env }} -Denv=${{ matrix.env }} verify
 
+      # Generate Allure HTML report if results exist
+      - name: Generate Allure HTML (profile ${{ matrix.env }})
+        run: |
+          if [ -d target/allure-results ] && [ "$(ls -A target/allure-results)" ]; then
+            mvn -ntp -DskipTests \
+              -Dallure.results.directory=target/allure-results \
+              -Dallure.report.directory=target/allure-report \
+              io.qameta.allure:allure-maven:2.12.0:report
+          else
+            echo "No Allure results found; skipping HTML generation."
+          fi
+
       - name: Upload Surefire reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -43,6 +55,7 @@ jobs:
           path: |
             **/target/surefire-reports/**
           if-no-files-found: warn
+          retention-days: 7
 
       - name: Upload Allure results
         if: always()
@@ -52,3 +65,14 @@ jobs:
           path: |
             **/target/allure-results/**
           if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload Allure HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-${{ matrix.env }}
+          path: |
+            **/target/allure-report/**
+          if-no-files-found: warn
+          retention-days: 7
