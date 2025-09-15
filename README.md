@@ -200,8 +200,8 @@ mvn -ntp -Dtest=smokeTests.OrderFlowTest test
 
 ### Allure report
 ```bash
-mvn -ntp allure:serve      # Serve locally (opens browser)
-mvn -ntp allure:report     # Generate static report in target/site/allure-maven-plugin
+mvn -ntp allure:serve
+mvn -ntp allure:report
 ```
 
 ### Checkstyle

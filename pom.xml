@@ -141,10 +141,15 @@
                 </configuration>
             </plugin>
 
+            <!-- Allure Maven plugin (optional: for report generation goals) -->
             <plugin>
                 <groupId>io.qameta.allure</groupId>
                 <artifactId>allure-maven</artifactId>
                 <version>${allure.maven.version}</version>
+                <configuration>
+                    <reportVersion>2.25.0</reportVersion>
+                    <resultsDirectory>${project.build.directory}/allure-results</resultsDirectory>
+                </configuration>
             </plugin>
 
             <plugin>
