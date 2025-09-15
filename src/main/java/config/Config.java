@@ -15,9 +15,9 @@ public final class Config {
     }
 
     private static String envOrProp(SystemVar systemVar){
-        String env = System.getenv(systemVar.envKey);
+        String env = System.getenv(systemVar.getEnvKey());
         if (env != null && !env.isBlank()) return env;
-        return properties.getProperty(systemVar.propKey, systemVar.defaultValue);
+        return properties.getProperty(systemVar.getEnvKey(), systemVar.getDefaultValue());
     }
 
     public static String baseApiUrl()      { return envOrProp(SystemVar.BASE_URL); }

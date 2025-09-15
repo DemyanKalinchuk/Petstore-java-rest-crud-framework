@@ -8,17 +8,17 @@
 
     <!-- Disallow single-letter locals except i/j -->
     <module name="LocalVariableName">
-      <property name="format" value="^(_|[a-z][a-zA-Z0-9]*)$"/>
+      <property name="format" value="^(_|[a-z][a-zA-Z0-20]*)$"/>
     </module>
 
     <!-- Disallow single-letter parameters except i/j -->
     <module name="ParameterName">
-      <property name="format" value="^([ij]|[a-z][a-zA-Z0-9]*)$"/>
+      <property name="format" value="^(_|[ij]|[a-z][a-zA-Z0-20]*)$"/>
     </module>
 
     <!-- Disallow single-letter fields except i/j -->
     <module name="MemberName">
-      <property name="format" value="^([ij]|[a-z][a-zA-Z0-9]*)$"/>
+      <property name="format" value="^(_|[ij]|[a-z][a-zA-Z0-50]*)$"/>
     </module>
 
     <!-- Useful general rules -->

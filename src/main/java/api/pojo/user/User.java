@@ -10,12 +10,12 @@ import lombok.Data;
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class User {
-  private Long id;
-  private String username;
-  private String firstName;
-  private String lastName;
-  private String email;
-  private String password;
-  private String phone;
-  private Integer userStatus;
+  private final Long id;
+  private final String username;
+  private final String firstName;
+  private final String lastName;
+  private final String email;
+  private final String password;
+  private final String phone;
+  private final Integer userStatus;
 }

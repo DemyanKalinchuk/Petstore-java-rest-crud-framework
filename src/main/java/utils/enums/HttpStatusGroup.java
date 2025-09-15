@@ -5,11 +5,11 @@ import java.util.Set;
 public final class HttpStatusGroup {
     private HttpStatusGroup(){}
     public static final Set<Integer> SUCCESS_CODES = Set.of(
-        HttpStatusCode.OK.code, HttpStatusCode.CREATED.code, HttpStatusCode.ACCEPTED.code,
-        HttpStatusCode.NO_CONTENT.code, HttpStatusCode.RESET_CONTENT.code
+        HttpStatusCode.OK.getStatusCode(), HttpStatusCode.CREATED.getStatusCode(), HttpStatusCode.ACCEPTED.getStatusCode(),
+        HttpStatusCode.NO_CONTENT.getStatusCode(), HttpStatusCode.RESET_CONTENT.getStatusCode()
     );
     public static final Set<Integer> RETRYABLE_CODES = Set.of(
-        HttpStatusCode.CONFLICT.code, HttpStatusCode.GONE.code, HttpStatusCode.TOO_MANY_REQUESTS.code,
-        HttpStatusCode.INTERNAL_SERVER_ERROR.code, HttpStatusCode.BAD_GATEWAY.code
+        HttpStatusCode.CONFLICT.getStatusCode(), HttpStatusCode.GONE.getStatusCode(), HttpStatusCode.TOO_MANY_REQUESTS.getStatusCode(),
+        HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), HttpStatusCode.BAD_GATEWAY.getStatusCode()
     );
 }

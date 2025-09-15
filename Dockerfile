@@ -8,4 +8,4 @@ RUN mvn -q -ntp -DskipITs=false verify
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-CMD ["bash","-lc","echo 'No runtime app; use docker compose to run tests.'"]
+CMD ["bash","-lc","echo 'No runtime app; use docker compose to run smokeTests.'"]

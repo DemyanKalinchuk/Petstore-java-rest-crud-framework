@@ -1,5 +1,8 @@
 package utils.enums;
 
+import lombok.Getter;
+
+@Getter
 public enum SystemVar {
     BASE_URL("BASE_URL", "api.base.url", "https://petstore.swagger.io/v2"),
     FILES_BASE_URL("FILES_BASE_URL", "files.base.url", "https://petstore.swagger.io/v2"),
@@ -8,9 +11,9 @@ public enum SystemVar {
     ACCEPT_LANG("ACCEPT_LANG", "accept.lang", "en-US"),
     API_BEARER("API_BEARER", "api.bearer", "special-key");
 
-    public final String envKey;
-    public final String propKey;
-    public final String defaultValue;
+    private final String envKey;
+    private final String propKey;
+    private final String defaultValue;
 
     SystemVar(String envKey, String propKey, String defaultValue) {
         this.envKey = envKey;

@@ -4,7 +4,7 @@ A clean, strongly-typed API testing framework for the Swagger Petstore with:
 
 - **POJOs** (Lombok `@Builder`, body-only fields)
 - **Builders** in `api/builder/**` (used **only** by Steps)
-- **Steps** that perform **HTTP calls + SoftAssert checks** (tests have **no assertions**)
+- **Steps** that perform **HTTP calls + SoftAssert checks** (smokeTests have **no assertions**)
 - **Enums/constants** for paths, headers, media types, status codes, query keys, test data (no magic literals)
 - **HttpRequest** with retry/backoff, masking, Allure attachments, multipart upload, GET-with-query
 - **Config** via env vars or `application.properties` (centralized in `SystemVar`)
@@ -18,7 +18,7 @@ A clean, strongly-typed API testing framework for the Swagger Petstore with:
 .
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                       # GitHub Actions (JDK 21, Checkstyle, tests, artifacts)
+│       └── ci.yml                       # GitHub Actions (JDK 21, Checkstyle, smokeTests, artifacts)
 ├── checkstyle/
 │   └── checkstyle.xml                   # Checkstyle rules (no magic literals, no 1-letter names, etc.)
 ├── src
@@ -43,7 +43,7 @@ A clean, strongly-typed API testing framework for the Swagger Petstore with:
 │   │   │       ├── assertions/
 │   │   │       │   └── BaseSoftAssert.java
 │   │   │       ├── constants/
-│   │   │       │   └── TestData.java    # Test constants (no magic literals in tests)
+│   │   │       │   └── TestData.java    # Test constants (no magic literals in smokeTests)
 │   │   │       ├── enums/               # Centralized enums
 │   │   │       │   ├── ApiPath.java
 │   │   │       │   ├── SystemVar.java
@@ -69,7 +69,7 @@ A clean, strongly-typed API testing framework for the Swagger Petstore with:
 │   │       └── application.properties   # Defaults for environment vars
 │   └── test
 │       ├── java
-│       │   └── Tests                    # Smoke flows (no asserts; Steps do SoftAssert)
+│       │   └── smokeTests                    # Smoke flows (no asserts; Steps do SoftAssert)
 │       │       ├── UserFlowTest.java
 │       │       ├── PetFlowTest.java
 │       │       └── OrderFlowTest.java
@@ -91,7 +91,7 @@ A clean, strongly-typed API testing framework for the Swagger Petstore with:
 - **Jackson** (JSON parsing; small helper `JsonHelper`)
 - **Lombok** (`@Builder` on POJOs)
 - **Checkstyle** (no magic numbers/strings; no single-letter variable/parameter names)
-- **JavaFaker** (test data generation in tests)
+- **JavaFaker** (test data generation in smokeTests)
 - **Docker / Docker Compose**
 - **GitHub Actions** (CI on push/PR)
 
@@ -99,9 +99,9 @@ A clean, strongly-typed API testing framework for the Swagger Petstore with:
 
 ## Assertions model
 
-- **Tests contain no assertions.** They call **Steps** only.
+- **smokeTests contain no assertions.** They call **Steps** only.
 - Each **Step** extends `BaseSoftAssert`, performs **SoftAssert** checks on the response (e.g., `"code" == 200`, field equality), and calls `assertAll()` **inside the step**.
-- Keeps tests concise and pushes validation closer to the reusable logic.
+- Keeps smokeTests concise and pushes validation closer to the reusable logic.
 
 ---
 
@@ -120,20 +120,19 @@ Use **environment variables** (preferred) or `src/main/resources/application.pro
 
 ---
 ## Quick start
-
-- Checkstyle + tests
+ Checkstyle + smokeTests
 ```bash
  export BASE_URL="https://petstore.swagger.io/v2"
  export API_CONSOLE_LOG="true"
  mvn -ntp verify
 
-- Run tests only (TestNG suite)
+- Run smokeTests only (TestNG suite)
  mvn -ntp test
 
 - Run a single test class
- mvn -ntp -Dtest=Tests.OrderFlowTest test
- mvn -ntp -Dtest=Tests.PetFlowTest test
- mvn -ntp -Dtest=Tests.UserFlowTest test
+ mvn -ntp -Dtest=smokeTests.orders.OrderFlowTest test
+ mvn -ntp -Dtest=smokeTests.PetFlowTest test
+ mvn -ntp -Dtest=smokeTests.users.UserFlowTest test
 
 ## Allure report
 mvn -ntp allure:serve

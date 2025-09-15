@@ -11,8 +11,8 @@
         </Console>
 
         <RollingFile name="File"
-                     fileName="${LOG_DIR}/tests.log"
-                     filePattern="${LOG_DIR}/tests-%d{yyyy-MM-dd}-%i.log.gz">
+                     fileName="${LOG_DIR}/smokeTests.log"
+                     filePattern="${LOG_DIR}/smokeTests-%d{yyyy-MM-dd}-%i.log.gz">
             <PatternLayout pattern="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5p [%t] %logger{36} - %msg%n"/>
             <Policies>
                 <TimeBasedTriggeringPolicy/>

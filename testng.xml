@@ -1,15 +1,11 @@
 <!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd" >
 <suite name="PetStore_Api_Suite" parallel="tests" thread-count="2" configfailurepolicy="continue">
 
-  <listeners>
-    <listener class-name="io.qameta.allure.testng.AllureTestNg"/>
-  </listeners>
-
   <test name="Petstore Flows">
-    <classes>
-      <class name="Tests.PetFlowTest"/>
-      <class name="Tests.OrderFlowTest"/>
-      <class name="Tests.UserFlowTest"/>
-    </classes>
+    <packages>
+      <package name="smokeTests.orders"/>
+      <package name="smokeTests.pets"/>
+      <package name="smokeTests.users"/>
+    </packages>
   </test>
 </suite>

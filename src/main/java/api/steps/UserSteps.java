@@ -3,8 +3,11 @@ package api.steps;
 import api.builder.user.UserBuilder;
 import api.pojo.user.User;
 import com.fasterxml.jackson.databind.JsonNode;
+import io.restassured.response.Response;
 import utils.assertions.BaseSoftAssert;
 import utils.enums.ApiPath;
+import utils.enums.HttpStatusCode;
+import utils.helpers.JsonHelper;
 import utils.helpers.QueryParams;
 import utils.request.HttpRequest;
 
@@ -66,16 +69,34 @@ public class UserSteps extends BaseSoftAssert {
     /** LOGIN using query parameters, no strict assertion beyond non-error; adjust if backend returns fields. */
     public String login(String username, String password) {
         String responseBody = httpRequest.getWithQuery(null, ApiPath.USER_LOGIN, QueryParams.forLogin(username, password));
-        // Optionally assert presence of message or session info here:
-        // JsonNode json = asJson(responseBody);
-        // if (JsonHelper.has(json, "message")) { ... }
+        JsonNode json = asJson(responseBody);
+        assertCode200IfPresent(json, "Login");
+        if (JsonHelper.has(json, "message")) {
+            String message = JsonHelper.getString(json, "message");
+            // typical Petstore message: "logged in user session:<id>"
+            softAssert.assertTrue(message != null && message.toLowerCase().contains("logged in user session"),
+                    "Login -> 'message' should contain 'logged in user session'");
+        }
         finishAssertions();
         return responseBody;
     }
 
     public String logout() {
         String responseBody = httpRequest.getRequest(null, ApiPath.USER_LOGOUT);
+        JsonNode json = asJson(responseBody);
+        assertCode200IfPresent(json, "Logout");
+        if (JsonHelper.has(json, "message")) {
+            assertEqualsString(json, "message", "ok", "Logout");
+        }
         finishAssertions();
         return responseBody;
     }
+
+    public String getUserExpectingStatus(String username, HttpStatusCode expectedStatus) {
+        Response response = httpRequest.getRaw(null, ApiPath.USER_USERNAME, null, username);
+        assertHttpStatusEquals(response, expectedStatus, "Get User (negative)");
+        finishAssertions();
+        return (response == null) ? null : response.asString();
+    }
+
 }

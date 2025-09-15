@@ -11,6 +11,6 @@ services:
       API_CONSOLE_LOG: "false"
       API_RETRY_MAX: "2"
       ACCEPT_LANG: "en-US"
-      API_BEARER: ""
+      API_BEARER: "special-key"
     command: >
       bash -lc "mvn -q -ntp -DskipITs=false verify"

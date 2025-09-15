@@ -1,7 +1,9 @@
 package utils.enums;
 
+import lombok.Getter;
 import utils.request.path.IPath;
 
+@Getter
 public enum ApiPath implements IPath {
     PET("/pet", "Create/Update Pet"),
     PET_ID("/pet/%s", "Pet by ID"),

@@ -6,25 +6,29 @@ import io.restassured.config.SSLConfig;
 import io.restassured.response.Response;
 import io.restassured.specification.RequestSpecification;
 import org.testng.internal.collections.Pair;
-import utils.enums.HttpHeader;
-import utils.enums.HttpMethod;
-import utils.enums.HttpStatusGroup;
-import utils.enums.MediaType;
+import utils.enums.*;
 import utils.request.exception.HttpsException;
 import utils.request.path.IPath;
 
 import java.io.File;
 import java.util.*;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
+import static core.TestStepLogger.log;
 import static io.restassured.RestAssured.given;
 import static utils.AllureUtils.*;
+import static utils.enums.HttpStatusCode.*;
+import static utils.helpers.WaitHelper.justWait;
 
 public class HttpRequest {
 
     private final String baseApiUrl = Config.baseApiUrl();
     private final String filesApiUrl = Config.baseFilesApiUrl();
     private final boolean consoleLogEnabled = Config.consoleLog();
+
+    @SuppressWarnings("FieldCanBeLocal")
+    private final long defaultTimeoutInMilliseconds = 1000L;
 
     public HttpRequest() {
         RestAssured.config = RestAssured.config().sslConfig(SSLConfig.sslConfig().allowAllHostnames());
@@ -46,6 +50,11 @@ public class HttpRequest {
         return sendRequest(HttpMethod.DELETE, baseApiUrl, customHeaders, null, path, pathParams);
     }
 
+    private boolean isRequestFailed(int actualResponseStatusCode) {
+        Stream<HttpStatusCode> failedStatusCodesStream = Stream.of(CONFLICT, GONE, TOO_MANY_REQUESTS);
+        return failedStatusCodesStream.anyMatch(failedStatusCode -> failedStatusCode.getStatusCode() == actualResponseStatusCode);
+    }
+
     public String postRequestForUploadFile(
             final String fileToken,
             final List<Pair<String, File>> filePairsList,
@@ -53,9 +62,9 @@ public class HttpRequest {
             String endpoint
     ) {
         RequestSpecification requestSpecification = given()
-                .header(HttpHeader.CONTENT_TYPE.key, MediaType.APPLICATION_JSON.value)
-                .header(HttpHeader.AUTHORIZATION.key, "Bearer " + fileToken)
-                .contentType(MediaType.MULTIPART_FORM_DATA.value);
+                .header(HttpHeader.CONTENT_TYPE.getKey(), MediaType.APPLICATION_JSON.getValue())
+                .header(HttpHeader.AUTHORIZATION.getKey(), "Bearer " + fileToken)
+                .contentType(MediaType.MULTIPART_FORM_DATA.getValue());
 
         if (filePairsList != null) filePairsList.forEach(pair -> requestSpecification.multiPart(pair.first(), pair.second()));
         if (stringPairsList != null) stringPairsList.forEach(pair -> requestSpecification.multiPart(pair.first(), pair.second()));
@@ -85,7 +94,7 @@ public class HttpRequest {
         RequestSpecification requestSpecification = given()
                 .config(RestAssured.config().sslConfig(SSLConfig.sslConfig().relaxedHTTPSValidation()))
                 .headers(mergedHeaders(customHeaders))
-                .contentType(MediaType.APPLICATION_JSON.value);
+                .contentType(MediaType.APPLICATION_JSON.getValue());
 
         if (requestBody != null) requestSpecification.body(requestBody);
         if (consoleLogEnabled) requestSpecification.log().all();
@@ -94,7 +103,6 @@ public class HttpRequest {
 
         int attemptIndex = 0;
         int maximumAttempts = Math.max(0, Config.retryMax());
-        long backoffMillis = 500;
         Response response;
 
         while (true) {
@@ -107,16 +115,21 @@ public class HttpRequest {
 
             if (!HttpStatusGroup.RETRYABLE_CODES.contains(response.statusCode()) || attemptIndex > maximumAttempts) break;
 
-            sleep(backoffMillis);
-            backoffMillis = Math.min(backoffMillis * 2, 4000);
+
+            if (isRequestFailed(response.statusCode())) {
+                justWait(defaultTimeoutInMilliseconds);
+                log("statusCode - " + response.statusCode());
+            }
         }
+
+
 
         String requestBodyMasked = safeString(requestBody);
         String responseBody = response.then().extract().asString();
         attach(httpMethod + " " + formattedPath, requestBodyMasked, response, responseBody);
 
-        String contentTypeHeader = Optional.ofNullable(response.getHeader(HttpHeader.CONTENT_TYPE.key)).orElse("");
-        boolean looksLikeHtml = contentTypeHeader.contains(MediaType.TEXT_HTML.value) || responseBody.startsWith("<!DOCTYPE");
+        String contentTypeHeader = Optional.ofNullable(response.getHeader(HttpHeader.CONTENT_TYPE.getKey())).orElse("");
+        boolean looksLikeHtml = contentTypeHeader.contains(MediaType.TEXT_HTML.getValue()) || responseBody.startsWith("<!DOCTYPE");
         String hint = looksLikeHtml ? "\nHint: Response is HTML — check BASE_URL vs endpoint." : "";
 
         if (!HttpStatusGroup.SUCCESS_CODES.contains(response.statusCode())) {
@@ -133,7 +146,7 @@ public class HttpRequest {
         RequestSpecification requestSpecification = given()
                 .config(RestAssured.config().sslConfig(SSLConfig.sslConfig().relaxedHTTPSValidation()))
                 .headers(mergedHeaders(customHeaders))
-                .contentType(MediaType.APPLICATION_JSON.value);
+                .contentType(MediaType.APPLICATION_JSON.getValue());
 
         if (queryParams != null && !queryParams.isEmpty()) requestSpecification.queryParams(queryParams);
         if (consoleLogEnabled) requestSpecification.log().all();
@@ -149,12 +162,53 @@ public class HttpRequest {
         return responseBody;
     }
 
+    public Response getRaw(utils.request.Headers customHeaders,
+                                                   utils.request.path.IPath pathTemplate,
+                                                   java.util.Map<String, Object> queryParams,
+                                                   String... pathParams) {
+        String formattedPath = formatPath(pathTemplate, pathParams);
+        RequestSpecification requestSpecification = given()
+                .config(RestAssured.config().sslConfig(SSLConfig.sslConfig().relaxedHTTPSValidation()))
+                .headers(mergedHeaders(customHeaders))
+                .contentType(utils.enums.MediaType.APPLICATION_JSON.getValue());
+
+        if (queryParams != null && !queryParams.isEmpty()) {
+            requestSpecification.queryParams(queryParams);
+        }
+        if (consoleLogEnabled) requestSpecification.log().all();
+
+        Response response = requestSpecification.get(baseApiUrl + formattedPath);
+        try {
+            String responseBody = response.then().extract().asString();
+            attach("RAW GET " + formattedPath, "(no body)", response, responseBody);
+        } catch (Throwable ignored) {}
+        return response;
+    }
+
+    public Response deleteRaw(utils.request.Headers customHeaders,
+                                                      utils.request.path.IPath pathTemplate,
+                                                      String... pathParams) {
+        String formattedPath = formatPath(pathTemplate, pathParams);
+        RequestSpecification requestSpecification = given()
+                .config(RestAssured.config().sslConfig(SSLConfig.sslConfig().relaxedHTTPSValidation()))
+                .headers(mergedHeaders(customHeaders))
+                .contentType(utils.enums.MediaType.APPLICATION_JSON.getValue());
+
+        if (consoleLogEnabled) requestSpecification.log().all();
+        Response response = requestSpecification.delete(baseApiUrl + formattedPath);
+        try {
+            String responseBody = response.then().extract().asString();
+            attach("RAW DELETE " + formattedPath, "(no body)", response, responseBody);
+        } catch (Throwable ignored) {}
+        return response;
+    }
+
     private Map<String, Object> mergedHeaders(Headers customHeaders) {
         Map<String, Object> merged = new LinkedHashMap<>();
-        merged.put(HttpHeader.ACCEPT_LANGUAGE.key, config.Config.acceptLang());
-        merged.put(HttpHeader.CONTENT_TYPE.key, MediaType.APPLICATION_JSON.value);
+        merged.put(HttpHeader.ACCEPT_LANGUAGE.getKey(), config.Config.acceptLang());
+        merged.put(HttpHeader.CONTENT_TYPE.getKey(), MediaType.APPLICATION_JSON.getValue());
         String bearerToken = config.Config.bearer();
-        if (bearerToken != null && !bearerToken.isBlank()) merged.put(HttpHeader.AUTHORIZATION.key, "Bearer " + bearerToken);
+        if (bearerToken != null && !bearerToken.isBlank()) merged.put(HttpHeader.AUTHORIZATION.getKey(), "Bearer " + bearerToken);
         if (customHeaders != null && customHeaders.getSize() != 0) {
             String[] headerKeyValue = customHeaders.getHeader();
             merged.put(headerKeyValue[0], headerKeyValue[1]);
@@ -164,12 +218,12 @@ public class HttpRequest {
 
     private Response invoke(HttpMethod httpMethod, RequestSpecification requestSpecification, String url) {
         return switch (httpMethod) {
-            case POST    -> requestSpecification.post(url);
-            case PUT     -> requestSpecification.put(url);
-            case PATCH   -> requestSpecification.patch(url);
-            case DELETE  -> requestSpecification.delete(url);
+            case POST -> requestSpecification.post(url);
+            case PUT -> requestSpecification.put(url);
+            case PATCH -> requestSpecification.patch(url);
+            case DELETE -> requestSpecification.delete(url);
             case OPTIONS -> requestSpecification.options(url);
-            default      -> requestSpecification.get(url);
+            default -> requestSpecification.get(url);
         };
     }
 

@@ -5,8 +5,10 @@ import api.pojo.pet.Category;
 import api.pojo.pet.Pet;
 import api.pojo.pet.Tag;
 import com.fasterxml.jackson.databind.JsonNode;
+import io.restassured.response.Response;
 import utils.assertions.BaseSoftAssert;
 import utils.enums.ApiPath;
+import utils.enums.HttpStatusCode;
 import utils.enums.PetStatus;
 import utils.helpers.JsonHelper;
 import utils.request.HttpRequest;
@@ -67,5 +69,12 @@ public class PetSteps extends BaseSoftAssert {
 
         finishAssertions();
         return responseBody;
+    }
+
+    public String getPetByIdExpectingStatus(long petId, HttpStatusCode expectedStatus) {
+        Response response = httpRequest.getRaw(null, ApiPath.PET_ID, null, String.valueOf(petId));
+        assertHttpStatusEquals(response, expectedStatus, "Get Pet By Id (negative)");
+        finishAssertions();
+        return (response == null) ? null : response.asString();
     }
 }
