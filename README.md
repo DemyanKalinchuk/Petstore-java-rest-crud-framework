@@ -35,7 +35,7 @@ Clean, production-grade API testing framework for the Swagger **Petstore**. It u
 │   │   │   │   ├── pojo          # POJOs (Lombok @Builder; body-only)
 │   │   │   │   │   ├── user/User.java
 │   │   │   │   │   ├── pet/{Pet.java, Category.java, Tag.java}
-│   │   │   │   │   └── store/Order.java
+│   │   │   │   │   └── dto/store/OrderDto.java
 │   │   │   │   ├── builder       # Builders (used only by Steps)
 │   │   │   │   │   ├── user/UserBuilder.java
 │   │   │   │   │   ├── pet/PetBuilder.java
@@ -79,6 +79,10 @@ Clean, production-grade API testing framework for the Swagger **Petstore**. It u
 │   │   │       └── AllureUtils.java              # Attachments
 │   │   └── resources
 │   │       └── application.properties            # Defaults for env vars
+│   │       └── application-dev.properties        # For dev env vars
+│   │       └── application-prod.properties       # For prod env vars
+│   │       └── application-stage.properties      # For stage env vars
+│   │       └── log4j.properties                  # Settings for the logging 
 │   └── test
 │       ├── java
 │       │   └── smokeTests                         # Smoke flows (assertions live in Steps)
@@ -89,10 +93,11 @@ Clean, production-grade API testing framework for the Swagger **Petstore**. It u
 │       │       ├── OrderQuantityAndNegativeTest.java
 │       │       └── UserLoginLogoutDataProviderTest.java
 │       └── resources
-│           └── testng.xml                        # TestNG suite
+│           └── log4j2.xml                        # Logger levels
 ├── Dockerfile
 ├── docker-compose.yml
 ├── pom.xml
+├── testng.xml
 └── README.md
 ```
 
