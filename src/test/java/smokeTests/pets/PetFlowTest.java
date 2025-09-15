@@ -6,7 +6,7 @@ import api.steps.PetSteps;
 import com.github.javafaker.Faker;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-import utils.BaseApiTest;
+import utils.base.BaseApiTest;
 import utils.constants.TestData;
 import utils.enums.PetStatus;
 

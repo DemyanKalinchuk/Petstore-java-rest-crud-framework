@@ -4,7 +4,7 @@ import api.steps.UserSteps;
 import com.github.javafaker.Faker;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-import utils.BaseApiTest;
+import utils.base.BaseApiTest;
 import utils.enums.HttpStatusCode;
 
 import static core.TestStepLogger.logStep;

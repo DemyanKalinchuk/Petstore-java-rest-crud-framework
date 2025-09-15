@@ -8,7 +8,7 @@ public final class UserBuilder {
         return (firstName == null ? "" : firstName) + (lastName == null ? "" : (" " + lastName));
     }
     public static User buildNewUser(String firstName, String lastName, String emailAddress, String jobAsUsername) {
-        String _ = buildName(firstName, lastName);
+        String name = buildName(firstName, lastName);
         return User.builder()
                 .username(jobAsUsername)
                 .firstName(firstName)

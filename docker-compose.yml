@@ -1,16 +1,13 @@
-version: "3.8"
+version: "3.9"
 services:
   tests:
-    image: maven:3.9.8-eclipse-temurin-22
-    working_dir: /work
-    volumes:
-      - ./:/work
+    build:
+      context: .
+      dockerfile: Dockerfile
     environment:
-      BASE_URL: "https://petstore.swagger.io/v2"
-      FILES_BASE_URL: "https://petstore.swagger.io/v2"
-      API_CONSOLE_LOG: "false"
-      API_RETRY_MAX: "2"
-      ACCEPT_LANG: "en-US"
-      API_BEARER: "special-key"
-    command: >
-      bash -lc "mvn -q -ntp -DskipITs=false verify"
+      ENV_PROFILE: ${ENV_PROFILE:-dev}
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace           # mount repo root -> /workspace
+      - ~/.m2:/root/.m2         # cache Maven repo
+    tty: true

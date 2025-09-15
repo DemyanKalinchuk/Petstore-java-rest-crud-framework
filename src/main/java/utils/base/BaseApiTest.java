@@ -1,4 +1,4 @@
-package utils;
+package utils.base;
 
 import config.Config;
 import io.qameta.allure.testng.AllureTestNg;

@@ -4,7 +4,7 @@ import api.steps.OrderSteps;
 import com.github.javafaker.Faker;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
-import utils.BaseApiTest;
+import utils.base.BaseApiTest;
 import utils.constants.TestData;
 import utils.enums.HttpStatusCode;
 import utils.enums.OrderStatus;

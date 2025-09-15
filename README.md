@@ -1,50 +1,59 @@
-# REST Assured CRUD Framework (Java 21 + TestNG + Allure)
+# Petstore Java REST CRUD Framework
 
-A clean, strongly-typed API testing framework for the Swagger Petstore with:
+Clean, production-grade API testing framework for the Swagger **Petstore**. It uses **Java 21**, **REST Assured**, **TestNG**, **Allure**, strict **Checkstyle**, and a layered design (POJOs ➜ Builders/DTOs ➜ Steps ➜ Tests).
 
-- **POJOs** (Lombok `@Builder`, body-only fields)
-- **Builders** in `api/builder/**` (used **only** by Steps)
-- **Steps** that perform **HTTP calls + SoftAssert checks** (smokeTests have **no assertions**)
-- **Enums/constants** for paths, headers, media types, status codes, query keys, test data (no magic literals)
-- **HttpRequest** with retry/backoff, masking, Allure attachments, multipart upload, GET-with-query
-- **Config** via env vars or `application.properties` (centralized in `SystemVar`)
-- **Checkstyle** rules (blocks magic numbers/strings & single-letter variable names)
-- **GitHub Actions** CI workflow
-- **Docker** & Compose to run the pipeline in containers
 
----
+## ✨ Highlights
 
-## Project structure
+- **POJOs** with Lombok `@Builder` (body-only fields)
+- **Builders** used only by **Steps** (no builders in tests)
+- **Orders** flow via a **DTO** (no Builder) to illustrate mixed styles
+- **Steps** execute HTTP + perform **SoftAssert** checks; **tests have no assertions**
+- **Enums & constants** for paths, headers, media types, status codes, query keys, test data (**no magic literals**)
+- **HttpRequest** core with retry/backoff, masking, Allure attachments, multipart, query params
+- **Unified request API**: `RequestOptions` + `ResponseHandling` + `RequestOptionsFactory` (authorized JSON helpers)
+- **Per-request retry tuning** via `RetryOptions` (e.g., retry `404 Not Found` a few times for eventual consistency)
+- **BaseApiTest** adds pre-/post-conditions (suite healthcheck, per-test cleanup registry, Allure env info)
+- **DataProviders** for matrixed coverage (e.g., pet status transitions; login/logout profiles)
+- **Checkstyle**: blocks magic literals & single-letter names (with sane exceptions), constant-case for `static final`
+- **Docker** & **GitHub Actions** ready
+
+
+## 📦 Project structure
+
+```
 .
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                       # GitHub Actions (JDK 21, Checkstyle, smokeTests, artifacts)
+│       └── ci.yml                # JDK 21, Checkstyle, tests, artifacts
 ├── checkstyle/
-│   └── checkstyle.xml                   # Checkstyle rules (no magic literals, no 1-letter names, etc.)
+│   └── checkstyle.xml            # Rules: no magic literals; naming; etc.
 ├── src
 │   ├── main
 │   │   ├── java
 │   │   │   ├── api
-│   │   │   │   ├── pojo                 # POJOs (Lombok @Builder)
+│   │   │   │   ├── pojo          # POJOs (Lombok @Builder; body-only)
 │   │   │   │   │   ├── user/User.java
 │   │   │   │   │   ├── pet/{Pet.java, Category.java, Tag.java}
 │   │   │   │   │   └── store/Order.java
-│   │   │   │   ├── builder              # Builders for POJOs (used only by Steps)
+│   │   │   │   ├── builder       # Builders (used only by Steps)
 │   │   │   │   │   ├── user/UserBuilder.java
 │   │   │   │   │   ├── pet/PetBuilder.java
-│   │   │   │   │   └── store/OrderBuilder.java
-│   │   │   │   └── steps                # Reusable step classes (HTTP + SoftAssert)
+│   │   │   │   │   └── store/OrderBuilder.java   # (kept/optional; Orders uses DTO in Steps)
+│   │   │   │   └── steps         # Reusable Steps (HTTP + SoftAssert + assertions inside)
 │   │   │   │       ├── UserSteps.java
 │   │   │   │       ├── PetSteps.java
-│   │   │   │       └── OrderSteps.java
+│   │   │   │       └── OrderSteps.java           # Uses OrderDto
+│   │   │   ├── api/dto
+│   │   │   │   └── store/OrderDto.java           # DTO for Orders flow
 │   │   │   ├── config
-│   │   │   │   └── Config.java          # Env/property loading via SystemVar enum
+│   │   │   │   └── Config.java                   # Env/property loading via SystemVar
 │   │   │   └── utils
 │   │   │       ├── assertions/
-│   │   │       │   └── BaseSoftAssert.java
+│   │   │       │   └── BaseSoftAssert.java       # Shared SoftAssert helpers
 │   │   │       ├── constants/
-│   │   │       │   └── TestData.java    # Test constants (no magic literals in smokeTests)
-│   │   │       ├── enums/               # Centralized enums
+│   │   │       │   └── TestData.java             # Test constants
+│   │   │       ├── enums/
 │   │   │       │   ├── ApiPath.java
 │   │   │       │   ├── SystemVar.java
 │   │   │       │   ├── HttpHeader.java
@@ -56,90 +65,167 @@ A clean, strongly-typed API testing framework for the Swagger Petstore with:
 │   │   │       │   ├── OrderStatus.java
 │   │   │       │   └── QueryParamKey.java
 │   │   │       ├── helpers/
-│   │   │       │   ├── JsonHelper.java  # Safe JSON parse/get helpers
-│   │   │       │   └── QueryParams.java # Enum-driven query param builders
+│   │   │       │   ├── JsonHelper.java
+│   │   │       │   └── QueryParams.java
 │   │   │       ├── request/
-│   │   │       │   ├── HttpRequest.java # Retry/backoff + Allure + multipart + GET with query
+│   │   │       │   ├── HttpRequest.java          # Core client (retry/backoff + Allure attachments)
+│   │   │       │   ├── RequestOptions.java       # Unified request descriptor
+│   │   │       │   ├── RequestOptionsFactory.java# Authorized JSON helpers; strict/lenient toggles
+│   │   │       │   ├── RetryOptions.java         # Per-request retry tuning (e.g., 404 retry)
 │   │   │       │   ├── Headers.java
 │   │   │       │   ├── path/IPath.java
 │   │   │       │   └── exception/HttpsException.java
-│   │   │       ├── BaseApiTest.java     # Pre-conditions (healthcheck), post-conditions (cleanup), Allure env
-│   │   │       └── AllureUtils.java     # Allure attachment helpers
+│   │   │       ├── BaseApiTest.java              # Healthcheck + per-test cleanup + Allure env + logStep()
+│   │   │       └── AllureUtils.java              # Attachments
 │   │   └── resources
-│   │       └── application.properties   # Defaults for environment vars
+│   │       └── application.properties            # Defaults for env vars
 │   └── test
 │       ├── java
-│       │   └── smokeTests                    # Smoke flows (no asserts; Steps do SoftAssert)
+│       │   └── smokeTests                         # Smoke flows (assertions live in Steps)
 │       │       ├── UserFlowTest.java
 │       │       ├── PetFlowTest.java
-│       │       └── OrderFlowTest.java
+│       │       ├── OrderFlowTest.java
+│       │       ├── PetStatusMatrixTest.java       # DataProvider example
+│       │       ├── OrderQuantityAndNegativeTest.java
+│       │       └── UserLoginLogoutDataProviderTest.java
 │       └── resources
-│           └── testng.xml               # TestNG suite
-├── Dockerfile                           # Containerized build & test
-├── docker-compose.yml                   # Compose to run mvn verify in a container
-├── pom.xml                              # Java 21, Rest Assured, TestNG, Allure, Checkstyle, Faker
-└── README.md                            # This file
+│           └── testng.xml                        # TestNG suite
+├── Dockerfile
+├── docker-compose.yml
+├── pom.xml
+└── README.md
+```
 
----
 
-## Technology stack
+## 🧰 Technology stack
 
 - **Java 21**, **Maven**
 - **REST Assured** (HTTP client)
-- **TestNG** (runner; suite via `testng.xml`)
+- **TestNG** (runner, DataProviders, suite via `testng.xml`)
 - **Allure** (reporting; request/response attachments baked in)
-- **Jackson** (JSON parsing; small helper `JsonHelper`)
+- **Jackson** (JSON parse helpers)
 - **Lombok** (`@Builder` on POJOs)
-- **Checkstyle** (no magic numbers/strings; no single-letter variable/parameter names)
-- **JavaFaker** (test data generation in smokeTests)
+- **Checkstyle** (no magic numbers/strings; no single-letter identifiers; constant-case for `static final`)
+- **JavaFaker** (test data)
 - **Docker / Docker Compose**
 - **GitHub Actions** (CI on push/PR)
 
----
 
-## Assertions model
+## 🔐 Configuration
 
-- **smokeTests contain no assertions.** They call **Steps** only.
-- Each **Step** extends `BaseSoftAssert`, performs **SoftAssert** checks on the response (e.g., `"code" == 200`, field equality), and calls `assertAll()` **inside the step**.
-- Keeps smokeTests concise and pushes validation closer to the reusable logic.
+Use environment variables or `src/main/resources/application.properties`. Keys are centralized in `utils.enums.SystemVar`:
 
----
+| Env var           | Property key         | Default                           |
+|-------------------|----------------------|-----------------------------------|
+| `BASE_URL`        | `api.base.url`       | `https://petstore.swagger.io/v2`  |
+| `FILES_BASE_URL`  | `files.base.url`     | `https://petstore.swagger.io/v2`  |
+| `API_CONSOLE_LOG` | `api.console.log`    | `false`                           |
+| `API_RETRY_MAX`   | `api.retry.max`      | `2`                               |
+| `ACCEPT_LANG`     | `accept.lang`        | `en-US`                           |
+| `API_BEARER`      | `api.bearer`         | *(empty)*                         |
 
-## Configuration
-
-Use **environment variables** (preferred) or `src/main/resources/application.properties`. Keys are centralized in `utils.enums.SystemVar`.
-
-| Env var            | Property key          | Default                         |
-|--------------------|-----------------------|---------------------------------|
-| `BASE_URL`         | `api.base.url`        | `https://petstore.swagger.io/v2`|
-| `FILES_BASE_URL`   | `files.base.url`      | `https://petstore.swagger.io/v2`|
-| `API_CONSOLE_LOG`  | `api.console.log`     | `false`                         |
-| `API_RETRY_MAX`    | `api.retry.max`       | `2`                             |
-| `ACCEPT_LANG`      | `accept.lang`         | `en-US`                         |
-| `API_BEARER`       | `api.bearer`          | `special-key`_
-
----
-## Quick start
- Checkstyle + smokeTests
+Example:
 ```bash
- export BASE_URL="https://petstore.swagger.io/v2"
- export API_CONSOLE_LOG="true"
- mvn -ntp verify
+export BASE_URL="https://petstore.swagger.io/v2"
+export API_CONSOLE_LOG="true"
+mvn -ntp verify
+```
+```bash
+# dev (default)
+mvn -ntp -Pdev verify
 
-- Run smokeTests only (TestNG suite)
- mvn -ntp test
+# stage
+mvn -ntp -Pstage verify
 
-- Run a single test class
- mvn -ntp -Dtest=smokeTests.orders.OrderFlowTest test
- mvn -ntp -Dtest=smokeTests.PetFlowTest test
- mvn -ntp -Dtest=smokeTests.users.UserFlowTest test
+# prod
+mvn -ntp -Pprod verify
 
-## Allure report
-mvn -ntp allure:serve
-mvn -ntp allure:report
+# CLI proo
+mvn -ntp -Denv=stage verify
+```
 
-Checkstyle (explicit)
+
+## 🧪 Assertions model
+
+- **Tests contain no assertions**. They call the **Steps** layer only.
+- Each **Step** extends `BaseSoftAssert`, validates response payload (e.g., `"code" == 200`, field equality), and calls `assertAll()` inside the step.
+- Negative overloads in Steps accept an expected `HttpStatusCode` and send requests with **`ResponseHandling.LENIENT`** to assert non-2xx statuses at the step level.
+
+
+## 🚦 Unified HTTP
+
+- `RequestOptions` describes a request (method, path, body, query, headers, handling).
+- `RequestOptionsFactory` gives concise JSON GET/POST/PUT/DELETE builders (authorized or not) and strict/lenient toggles.
+- `RetryOptions` enables per-request retry, e.g., retry **404** a few times for eventual consistency.
+
+
+## 🧱 Patterns
+
+- **Users & Pets**: POJOs + Builders (builders live in `api/builder/**`, called only from Steps).
+- **Orders**: **DTO** (`api/dto/store/OrderDto.java`) used from Steps (no Builder) to illustrate DTO style.
+- **QueryParams**: helper builds typed maps (`username`, `password`) for login.
+- **Enums/constants**: `ApiPath`, `HttpHeader`, `MediaType`, `HttpMethod`, `HttpStatusCode`, `HttpStatusGroup`, `QueryParamKey`, `PetStatus`, `OrderStatus`, `TestData`.
+
+
+## 🧹 BaseApiTest (pre-/post-conditions)
+
+- **Preconditions**: suite-level health check (`/store/inventory`) + Allure environment attachment.
+- **Post-conditions**: per-test cleanup registry (users/pets/orders), executed in `@AfterMethod` with an Allure summary.
+- **Helper**: `logStep("...")` for readable steps in reports.
+
+
+## 🚀 Quick start
+
+### Full pipeline (Checkstyle + tests)
+```bash
+mvn -ntp verify
+```
+
+### Run tests only (TestNG suite)
+```bash
+mvn -ntp test
+```
+
+### Run a single test class
+```bash
+mvn -ntp -Dtest=smokeTests.PetFlowTest test
+mvn -ntp -Dtest=smokeTests.UserFlowTest test
+mvn -ntp -Dtest=smokeTests.OrderFlowTest test
+```
+
+### Allure report
+```bash
+mvn -ntp allure:serve      # Serve locally (opens browser)
+mvn -ntp allure:report     # Generate static report in target/site/allure-maven-plugin
+```
+
+### Checkstyle
+```bash
 mvn -ntp checkstyle:check
+```
 
 
+## 🐳 Docker
 
+Run the pipeline inside a container:
+```bash
+docker compose up --build --abort-on-container-exit
+```
+
+
+## 🤖 CI (GitHub Actions)
+
+Workflow: `.github/workflows/ci.yml`
+- JDK 21 with Maven cache
+- `mvn verify` (Checkstyle + tests)
+- Uploads **Surefire** and **Allure** artifacts
+
+
+## 🛠 Troubleshooting
+
+- **`java.lang.instrument ASSERTION FAILED`**: remove incompatible `-javaagent` flags (AspectJ/JaCoCo/APM). Prefer Allure TestNG (no agent) or update to JDK-22–compatible agents.
+- **Checkstyle name errors**: constants should be `UPPER_SNAKE_CASE`; locals/params lowerCamelCase (single `_` allowed for placeholders if configured). Extract string/number literals to enums/constants.
+
+---
+
+Happy testing! 🚀

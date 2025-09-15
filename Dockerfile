@@ -1,11 +1,12 @@
-FROM maven:3.9.8-eclipse-temurin-22 AS build
+FROM maven:3.9.9-eclipse-temurin-21 AS build
 WORKDIR /app
-COPY pom.xml .
-RUN mvn -q -ntp -DskipTests dependency:go-offline
-COPY src ./src
+COPY pom.xml ./
 COPY checkstyle ./checkstyle
-RUN mvn -q -ntp -DskipITs=false verify
+RUN mvn -ntp -q -e -DskipTests dependency:go-offline
 
-FROM eclipse-temurin:21-jre
+FROM maven:3.9.9-eclipse-temurin-21
 WORKDIR /app
-CMD ["bash","-lc","echo 'No runtime app; use docker compose to run smokeTests.'"]
+COPY --from=build /root/.m2 /root/.m2
+COPY . /app
+ENV ENV_PROFILE=dev
+CMD ["bash", "-lc", "mvn -ntp -P${ENV_PROFILE} -Denv=${ENV_PROFILE} verify"]

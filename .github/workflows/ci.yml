@@ -1,32 +1,54 @@
 name: CI
+
 on:
   push:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch:
+
 jobs:
-  build-and-test:
+  build-test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [ dev, stage, prod ]
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '22'
+          java-version: '21'
           cache: maven
-      - name: Build (Checkstyle + tests)
-        run: mvn -B -ntp -DskipITs=false verify
-      - name: Upload surefire reports
+
+      - name: Show Java/Maven versions
+        run: |
+          java -version
+          mvn -version
+
+      - name: Build & test (profile ${{ matrix.env }})
+        run: |
+          mvn -ntp -P${{ matrix.env }} -Denv=${{ matrix.env }} verify
+
+      - name: Upload Surefire reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: surefire-reports
+          name: surefire-reports-${{ matrix.env }}
           path: |
-            target/surefire-reports/**
-            target/failsafe-reports/**
+            **/target/surefire-reports/**
+          if-no-files-found: warn
+
       - name: Upload Allure results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: allure-results
-          path: target/allure-results
+          name: allure-results-${{ matrix.env }}
+          path: |
+            **/target/allure-results/**
+          if-no-files-found: warn
