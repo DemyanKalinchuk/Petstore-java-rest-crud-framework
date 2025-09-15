@@ -75,7 +75,7 @@ jobs:
 
   # Publish Allure HTML to GitHub Pages
   publish-allure:
-    # run on push/workflow_dispatch only, and even if tests failed
+    # run even if tests failed; only on main/master & non-PR
     if: ${{ always() && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') }}
     needs: tests
     runs-on: ubuntu-latest
@@ -90,7 +90,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Merge all allure-results-<env> into one folder
+      # 1) Download all allure-results artifacts from matrix (dev/stage/prod)
       - name: Download Allure results (all envs)
         uses: actions/download-artifact@v4
         with:
@@ -98,16 +98,50 @@ jobs:
           path: allure-results
           merge-multiple: true
 
+      # 2) Flatten nested results so Allure can read them
+      #    (upload step often preserves full paths like module/target/allure-results/*.json)
+      - name: Flatten Allure results
+        run: |
+          set -euo pipefail
+          mkdir -p merged-results
+          found=0
+          shopt -s globstar nullglob
+          for f in allure-results/**/*; do
+            if [ -f "$f" ]; then
+              base="$(basename "$f")"
+              # avoid collisions: if file exists, prefix a numeric counter
+              if [ -e "merged-results/$base" ]; then
+                cp "$f" "merged-results/${RANDOM}_$base"
+              else
+                cp "$f" "merged-results/$base"
+              fi
+              found=$((found+1))
+            fi
+          done
+          echo "Collected $found files into merged-results"
+          if [ "$found" -eq 0 ]; then
+            echo "No Allure result files found to publish."; exit 0
+          fi
+
+      # 3) Enable Pages & build the HTML report from merged results
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
 
       - name: Generate Allure Report
         uses: simple-elf/allure-report-action@v1.8
         with:
-          allure_results: allure-results
+          allure_results: merged-results
           allure_report: allure-report
           keep_reports: 1
 
+      # 4) Ensure GitHub Pages doesn't run Jekyll filtering
+      - name: Add .nojekyll
+        run: |
+          touch allure-report/.nojekyll
+
+      # 5) Upload and deploy
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
