@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-test:
+  tests:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -17,6 +17,7 @@ jobs:
 
     steps:
       - name: Checkout
+        # v4 is latest major at the time of writing
         uses: actions/checkout@v4
 
       - name: Set up JDK 21
@@ -31,11 +32,11 @@ jobs:
           java -version
           mvn -version
 
-      # ✅ Tests (per profile)
+      # Run tests per profile and pass -Denv for Config overlay
       - name: Build & test (profile ${{ matrix.env }})
         run: mvn -ntp -P${{ matrix.env }} -Denv=${{ matrix.env }} verify
 
-      # ✅ NEW: Allure build step (right after tests)
+      # (Optional) Build Allure HTML locally as an artifact for each profile
       - name: Build Allure report (profile ${{ matrix.env }})
         if: always()
         run: |
@@ -48,8 +49,8 @@ jobs:
             echo "No Allure results found; skipping report build."
           fi
 
-      # Artifacts
-      - name: Upload Surefire reports
+      # Artifacts per env
+      - name: Upload Surefire reports (${{ matrix.env }})
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -58,7 +59,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-      - name: Upload Allure results
+      - name: Upload Allure results (${{ matrix.env }})
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -67,7 +68,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-      - name: Upload Allure HTML report
+      - name: Upload Allure HTML report (${{ matrix.env }})
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -75,3 +76,47 @@ jobs:
           path: '**/target/allure-report/**'
           if-no-files-found: warn
           retention-days: 7
+
+  # --- OPTIONAL: publish Allure HTML to GitHub Pages ---
+  publish-allure:
+    # Avoid publishing on PRs; only on push/manual
+    if: ${{ github.event_name != 'pull_request' }}
+    needs: tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Download and MERGE all environment results into one folder
+      - name: Download Allure results (all envs)
+        uses: actions/download-artifact@v4
+        with:
+          pattern: allure-results-*
+          path: allure-results
+          merge-multiple: true
+
+      # (Optional but recommended) Configure GitHub Pages
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      # Generate a single combined Allure report from the merged results
+      - name: Generate Allure Report
+        uses: simple-elf/allure-report-action@v1.8
+        with:
+          allure_results: allure-results
+          allure_report: allure-report
+          keep_reports: 1
+
+      # Upload the static site artifact for Pages
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: allure-report
+
+      # Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
