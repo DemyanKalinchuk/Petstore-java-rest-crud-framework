@@ -9,7 +9,7 @@ import utils.enums.ApiPath;
 import utils.enums.HttpStatusCode;
 import utils.helpers.JsonHelper;
 import utils.helpers.QueryParams;
-import utils.request.HttpRequest;
+import utils.request.http.HttpRequest;
 
 public class UserSteps extends BaseSoftAssert {
     private final HttpRequest httpRequest = new HttpRequest();

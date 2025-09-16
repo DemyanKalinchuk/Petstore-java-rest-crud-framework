@@ -11,7 +11,7 @@ import utils.enums.ApiPath;
 import utils.enums.HttpStatusCode;
 import utils.enums.PetStatus;
 import utils.helpers.JsonHelper;
-import utils.request.HttpRequest;
+import utils.request.http.HttpRequest;
 
 import java.util.List;
 

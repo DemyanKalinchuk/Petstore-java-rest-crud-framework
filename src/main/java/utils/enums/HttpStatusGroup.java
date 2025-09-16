@@ -10,6 +10,6 @@ public final class HttpStatusGroup {
     );
     public static final Set<Integer> RETRYABLE_CODES = Set.of(
         HttpStatusCode.CONFLICT.getStatusCode(), HttpStatusCode.GONE.getStatusCode(), HttpStatusCode.TOO_MANY_REQUESTS.getStatusCode(),
-        HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), HttpStatusCode.BAD_GATEWAY.getStatusCode()
+        HttpStatusCode.INTERNAL_SERVER_ERROR.getStatusCode(), HttpStatusCode.BAD_GATEWAY.getStatusCode(), HttpStatusCode.NOT_FOUND.getStatusCode()
     );
 }

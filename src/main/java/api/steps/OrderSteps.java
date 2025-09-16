@@ -8,7 +8,7 @@ import utils.enums.ApiPath;
 import utils.enums.HttpStatusCode;
 import utils.enums.OrderStatus;
 import utils.helpers.JsonHelper;
-import utils.request.HttpRequest;
+import utils.request.http.HttpRequest;
 
 import static utils.enums.ApiPath.*;
 
