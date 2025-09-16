@@ -6,8 +6,6 @@ import org.testng.asserts.SoftAssert;
 import utils.enums.HttpStatusCode;
 import utils.helpers.JsonHelper;
 
-import static java.lang.String.format;
-
 /** Shared SoftAssert helpers to be used from steps. */
 public abstract class BaseSoftAssert {
 
@@ -49,23 +47,6 @@ public abstract class BaseSoftAssert {
         int actualStatus = response == null ? -1 : response.getStatusCode();
         softAssert.assertEquals(actualStatus, expectedStatus.getStatusCode(),
                 context + " -> HTTP status mismatch");
-    }
-
-    public BaseSoftAssert numberNonNegative(final JsonNode jsonNode, final String fieldName, final String context) {
-        if (!JsonHelper.has(jsonNode, fieldName)) {
-            softAssert.fail(format("%s -> JSON should contain numeric field '%s'", context, fieldName));
-            return this;
-        }
-        JsonNode node = jsonNode.get(fieldName);
-        boolean isNumeric = node != null && (node.isInt() || node.isLong() || node.isNumber());
-        softAssert.assertTrue(isNumeric,
-                format("%s -> Field '%s' should be numeric, actual='%s'", context, fieldName, node));
-        if (isNumeric) {
-            long value = node.asLong();
-            softAssert.assertTrue(value >= 0,
-                    format("%s -> Field '%s' should be >= 0, actual=%d", context, fieldName, value));
-        }
-        return this;
     }
 
     /** Finish this step’s assertions. Each step method should call this at the end. */
