@@ -72,4 +72,10 @@ public class OrderFlowTest extends BaseApiTest {
         logStep("Delete order");
         orderSteps.deleteOrder(orderId);
     }
+
+    @Test
+    public void getInventoryTest() {
+        logStep("Inventory: basic assertions for available/pending/sold");
+        orderSteps.inventory();
+    }
 }
