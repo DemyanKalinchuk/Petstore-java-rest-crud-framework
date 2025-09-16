@@ -73,6 +73,11 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      - name: Clean previous report dir
+        if: always()
+        run: rm -rf target/allure-report
+
+
   # Publish Allure HTML to GitHub Pages
   publish-allure:
     if: ${{ always() && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') }}
