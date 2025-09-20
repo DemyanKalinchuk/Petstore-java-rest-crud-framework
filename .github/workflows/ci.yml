@@ -1,22 +1,23 @@
-name: K8s Tests
+name: CI
 
 on:
-  workflow_dispatch:
-    inputs:
-      envProfile:
-        description: "Maven profile to run in K8s (dev|stage|prod)"
-        required: false
-        default: "stage"
   push:
     branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
-  build-and-push:
+  tests:
     runs-on: ubuntu-latest
-    outputs:
-      image-tag: ${{ steps.meta.outputs.tag }}
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [ dev, stage, prod ]
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -25,95 +26,110 @@ jobs:
           java-version: '21'
           cache: maven
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build image
-        run: docker build -t ghcr.io/${{ github.repository }}:${{ github.sha }} .
-
-      - name: Push image
-        run: docker push ghcr.io/${{ github.repository }}:${{ github.sha }}
-
-      - name: Set image tag output
-        id: meta
-        run: echo "tag=ghcr.io/${GITHUB_REPOSITORY}:${GITHUB_SHA}" >> $GITHUB_OUTPUT
-
-  run-on-k8s:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      # kubectl & helm
-      - uses: azure/setup-kubectl@v4
-        with: { version: 'v1.30.0' }
-      - uses: azure/setup-helm@v4
-
-      # Provide cluster access; store kubeconfig in a secret
-      - name: Configure kubeconfig
+      - name: Show Java/Maven versions
         run: |
-          mkdir -p ~/.kube
-          echo "${KUBE_CONFIG}" > ~/.kube/config
-        env:
-          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+          java -version
+          mvn -version
 
-      - name: Create namespace / RBAC / config
+      - name: Build & test (profile ${{ matrix.env }})
+        run: mvn -ntp -P${{ matrix.env }} -Denv=${{ matrix.env }} verify
+
+      - name: Build Allure report (profile ${{ matrix.env }})
+        if: always()
         run: |
-          kubectl apply -f k8s/namespace.yaml
-          kubectl apply -f k8s/serviceaccount.yaml
-          kubectl apply -f k8s/configmap-env.yaml
-          kubectl apply -f k8s/secret-env.yaml
+          if [ -d target/allure-results ] && [ "$(ls -A target/allure-results)" ]; then
+            mvn -ntp -DskipTests \
+              -Dallure.results.directory=target/allure-results \
+              -Dallure.report.directory=target/allure-report \
+              io.qameta.allure:allure-maven:2.12.0:report
+          else
+            echo "No Allure results found; skipping report build."
+          fi
 
-      - name: Deploy Job with Helm
-        run: |
-          helm upgrade --install qa-runner ./k8s/helm/qa-runner \
-            --namespace qa --create-namespace \
-            --set image.repository=ghcr.io/${{ github.repository }} \
-            --set image.tag=${{ needs.build-and-push.outputs.image-tag##*: }} \
-            --set envProfile=${{ github.event.inputs.envProfile || 'stage' }}
-
-      - name: Wait for Job completion
-        run: |
-          kubectl wait --for=condition=complete job/qa-runner -n qa --timeout=30m || \
-          (echo "Job did not complete; dumping logs" && kubectl logs -l app=petstore-tests -n qa --all-containers --tail=-1 ; exit 1)
-
-      - name: Find test pod
-        id: pod
-        run: |
-          POD=$(kubectl get pods -n qa -l job-name=petstore-tests -o jsonpath='{.items[0].metadata.name}')
-          echo "pod=$POD" >> $GITHUB_OUTPUT
-
-      - name: Copy Allure results from pod
-        run: |
-          mkdir -p artifacts/allure-results artifacts/surefire
-          kubectl cp -n qa "${{ steps.pod.outputs.pod }}":/app/target/allure-results artifacts/allure-results || true
-          kubectl cp -n qa "${{ steps.pod.outputs.pod }}":/app/target/surefire-reports artifacts/surefire || true
-
-      - name: Upload raw artifacts
+      - name: Upload Surefire reports (${{ matrix.env }})
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: k8s-allure-results
-          path: artifacts/allure-results
+          name: surefire-reports-${{ matrix.env }}
+          path: '**/target/surefire-reports/**'
+          if-no-files-found: warn
+          retention-days: 7
 
-      - name: Build Allure HTML
+      - name: Upload Allure results (${{ matrix.env }})
         if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results-${{ matrix.env }}
+          path: '**/target/allure-results/**'
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload Allure HTML report (${{ matrix.env }})
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-${{ matrix.env }}
+          path: '**/target/allure-report/**'
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Clean previous report dir
+        if: always()
+        run: rm -rf target/allure-report
+
+
+  # Publish Allure HTML to GitHub Pages
+  publish-allure:
+    if: ${{ always() && github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') }}
+    needs: tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    concurrency:
+      group: 'pages'
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Allure results (all envs)
+        uses: actions/download-artifact@v4
+        with:
+          pattern: allure-results-*
+          path: allure-results
+          merge-multiple: true
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Generate Allure Report
         uses: simple-elf/allure-report-action@v1.8
         with:
-          allure_results: artifacts/allure-results
-          allure_report: artifacts/allure-report
+          allure_results: allure-results
+          allure_report: allure-report
+          allure_serve: allure-serve
           keep_reports: 1
 
-      - name: Upload Allure HTML
-        if: always()
-        uses: actions/upload-artifact@v4
+      # ✅ Copy to a writable dir and add .nojekyll (avoids permission issues)
+      - name: Prepare Pages site
+        run: |
+          set -euo pipefail
+          if [ ! -d "allure-report" ]; then
+            echo "No allure-report folder found"; exit 0
+          fi
+          rm -rf pages-site
+          mkdir -p pages-site
+          cp -R allure-report/* pages-site/
+          touch pages-site/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: k8s-allure-report
-          path: artifacts/allure-report
+          path: pages-site
 
       - name: Deploy to GitHub Pages
         id: deployment
