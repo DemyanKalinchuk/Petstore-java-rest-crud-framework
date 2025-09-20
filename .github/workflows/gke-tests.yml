@@ -1,0 +1,164 @@
+name: GKE Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      envProfile:
+        description: "Maven profile to run in K8s (dev|stage|prod)"
+        required: false
+        default: "stage"
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      tag: ${{ steps.meta.outputs.tag }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - id: auth
+        name: Auth to Google Cloud (OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          access_token_lifetime: 1200s
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Enable required APIs (idempotent)
+        run: |
+          gcloud services enable artifactregistry.googleapis.com container.googleapis.com --project "${{ secrets.GCP_PROJECT_ID }}"
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ secrets.GCP_ARTIFACT_REGISTRY_HOST }} --quiet
+
+      - name: Build Docker image
+        id: meta
+        run: |
+          set -euo pipefail
+          IMAGE="${{ secrets.GCP_ARTIFACT_REGISTRY_HOST }}/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_ARTIFACT_REGISTRY_REPO }}/petstore-tests"
+          TAG="${GITHUB_SHA}"
+          docker build -t "${IMAGE}:${TAG}" .
+          echo "Built image: ${IMAGE}:${TAG}"
+          echo "image=${IMAGE}" >> $GITHUB_OUTPUT
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Push image
+        run: |
+          docker push "${{ steps.meta.outputs.image }}:${{ steps.meta.outputs.tag }}"
+
+  run-on-gke:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Auth to Google Cloud (OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          cluster_name: ${{ secrets.GKE_CLUSTER_NAME }}
+          location: ${{ secrets.GKE_LOCATION }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Show resolved image + tag
+        run: |
+          echo "Repository: ${{ needs.build-and-push.outputs.image }}"
+          echo "Tag:        ${{ needs.build-and-push.outputs.tag }}"
+
+      - name: Ensure namespace exists
+        run: |
+          kubectl get ns qa >/dev/null 2>&1 || kubectl create ns qa
+
+      - name: Delete previous Job (if exists)
+        run: |
+          kubectl delete job petstore-tests -n qa --ignore-not-found
+
+      - name: Helm install/upgrade QA runner Job
+        run: |
+          helm upgrade --install qa-runner ./k8s/helm/qa-runner \
+            --namespace qa --create-namespace \
+            --set image.repository='${{ needs.build-and-push.outputs.image }}' \
+            --set image.tag='${{ needs.build-and-push.outputs.tag }}' \
+            --set envProfile='${{ github.event.inputs.envProfile || 'stage' }}'
+
+      - name: Wait for Job to appear
+        run: |
+          for i in {1..60}; do
+            kubectl get job/petstore-tests -n qa && break || sleep 5
+          done
+          kubectl get job/petstore-tests -n qa
+
+      - name: Wait for Job completion
+        run: |
+          kubectl wait --for=condition=complete job/petstore-tests -n qa --timeout=30m || \
+          (echo "Job did not complete; dumping pods and logs..." && kubectl get pods -n qa -o wide && kubectl logs -n qa -l job-name=petstore-tests --tail=-1 ; exit 1)
+
+      - name: Find test pod
+        id: pod
+        run: |
+          POD=$(kubectl get pods -n qa -l job-name=petstore-tests -o jsonpath='{.items[0].metadata.name}')
+          echo "pod=$POD" >> $GITHUB_OUTPUT
+          echo "Pod: $POD"
+
+      - name: Copy Allure and Surefire artifacts from pod
+        if: always()
+        run: |
+          mkdir -p artifacts/allure-results artifacts/allure-report artifacts/surefire
+          kubectl cp -n qa "${{ steps.pod.outputs.pod }}":/app/target/allure-results artifacts/allure-results || true
+          kubectl cp -n qa "${{ steps.pod.outputs.pod }}":/app/target/surefire-reports artifacts/surefire || true
+
+      - name: Upload raw results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gke-allure-results
+          path: artifacts/allure-results
+
+      - name: Build Allure HTML
+        if: always()
+        uses: simple-elf/allure-report-action@v1.8
+        with:
+          allure_results: artifacts/allure-results
+          allure_report: artifacts/allure-report
+          keep_reports: 1
+
+      - name: Upload Allure HTML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gke-allure-report
+          path: artifacts/allure-report
