@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: petstore-tests
+  namespace: qa
+  labels:
+    app: petstore-tests
+spec:
+  ttlSecondsAfterFinished: 600
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: petstore-tests
+    spec:
+      serviceAccountName: qa-runner
+      restartPolicy: Never
+      containers:
+        - name: tests
+          image: ghcr.io/OWNER/REPO:sha-PLACEHOLDER
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: petstore-tests-config
+            - secretRef:
+                name: petstore-tests-secrets
+          env:
+            - name: MAVEN_OPTS
+              value: "-XX:+UseContainerSupport -Dfile.encoding=UTF-8"
+          # Command baked in Dockerfile; override if you want:
+          # command: ["bash","-lc","mvn -ntp -P$ENV_PROFILE -Denv=$ENV_PROFILE verify"]
+          resources:
+            requests: { cpu: "500m", memory: "1Gi" }
+            limits:   { cpu: "2",    memory: "2Gi" }

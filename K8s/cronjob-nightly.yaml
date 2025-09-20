@@ -1,0 +1,32 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: petstore-tests-nightly
+  namespace: qa
+spec:
+  schedule: "0 2 * * *"          # 02:00 UTC nightly
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          serviceAccountName: qa-runner
+          restartPolicy: Never
+          containers:
+            - name: tests
+              image: ghcr.io/OWNER/REPO:stable
+              imagePullPolicy: IfNotPresent
+              envFrom:
+                - configMapRef: { name: petstore-tests-config }
+                - secretRef:    { name: petstore-tests-secrets }
+              env:
+                - name: ENV_PROFILE
+                  value: "prod"  # run nightly against prod
+                - name: MAVEN_OPTS
+                  value: "-XX:+UseContainerSupport -Dfile.encoding=UTF-8"
+              resources:
+                requests: { cpu: "500m", memory: "1Gi" }
+                limits:   { cpu: "2",    memory: "2Gi" }
